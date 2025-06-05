@@ -1,12 +1,14 @@
 <?php
 require_once 'auth.php';
 require_login();
-if($_SESSION['role'] !== 'superadmin'){
+// Only admins and superadmins can create users
+if($_SESSION['role'] === 'user'){
     header('location: welcome.php');
     exit;
 }
 
-$username = $password = $confirm_password = $role = '';
+$username = $password = $confirm_password = '';
+$role = 'user';
 $username_err = $password_err = $confirm_password_err = '';
 
 if($_SERVER['REQUEST_METHOD'] == 'POST'){
@@ -45,7 +47,11 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
             $confirm_password_err = 'Password did not match.';
         }
     }
-    $role = isset($_POST['role']) && $_POST['role'] === 'superadmin' ? 'superadmin' : 'user';
+    if($_SESSION['role'] === 'superadmin'){
+        $role = in_array($_POST['role'], ['superadmin','admin','user']) ? $_POST['role'] : 'user';
+    } else {
+        $role = 'user';
+    }
     if(empty($username_err) && empty($password_err) && empty($confirm_password_err)){
         $sql = 'INSERT INTO admin (username, password, role) VALUES (?, ?, ?)';
         if($stmt = mysqli_prepare($link, $sql)){
@@ -84,7 +90,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
         <label class="form-label">Role</label>
         <select name="role" class="form-select">
             <option value="user" <?php echo $role==='user'?'selected':''; ?>>User</option>
+            <?php if($_SESSION['role']==='superadmin'): ?>
+            <option value="admin" <?php echo $role==='admin'?'selected':''; ?>>Admin</option>
             <option value="superadmin" <?php echo $role==='superadmin'?'selected':''; ?>>Super Admin</option>
+            <?php endif; ?>
         </select>
     </div>
     <input type="submit" class="btn btn-primary" value="Create">
