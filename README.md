@@ -7,6 +7,8 @@ Simple web-based CMS with structured roles and granular permissions.
 - Module/function permissions (view/edit) configurable per page.
 - Superadmin can manage admins and permissions for all users.
 - Admins can create regular users and assign permissions.
+- Superadmins can create pages which generate PHP files automatically.
+- Custom user levels with default permissions can be defined.
 - Responsive layout using Bootstrap 5.3 with dark/light toggle.
 
 ## Setup

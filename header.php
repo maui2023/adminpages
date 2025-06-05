@@ -2,6 +2,16 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+require_once 'config.php';
+// Fetch pages for navigation
+$nav_pages = [];
+$res = mysqli_query($link, "SELECT name FROM pages ORDER BY id");
+if($res){
+    while($row = mysqli_fetch_assoc($res)){
+        $nav_pages[] = $row['name'];
+    }
+    mysqli_free_result($res);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
@@ -21,9 +31,9 @@ if (session_status() === PHP_SESSION_NONE) {
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <?php if(isset($_SESSION['loggedin']) && $_SESSION['loggedin']): ?>
-                <li class="nav-item"><a class="nav-link" href="page_a.php">Page A</a></li>
-                <li class="nav-item"><a class="nav-link" href="page_b.php">Page B</a></li>
-                <li class="nav-item"><a class="nav-link" href="page_c.php">Page C</a></li>
+                <?php foreach($nav_pages as $np): ?>
+                <li class="nav-item"><a class="nav-link" href="<?php echo $np; ?>.php"><?php echo ucwords(str_replace('_',' ', $np)); ?></a></li>
+                <?php endforeach; ?>
                 <?php endif; ?>
             </ul>
             <div class="d-flex">
