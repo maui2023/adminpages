@@ -9,6 +9,15 @@ if($_SESSION['role'] === 'user'){
 
 $username = $password = $confirm_password = '';
 $role = 'user';
+$level_id = null;
+$levels = [];
+$res = mysqli_query($link, "SELECT id, name FROM user_levels ORDER BY name");
+if($res){
+    while($row = mysqli_fetch_assoc($res)){
+        $levels[] = $row;
+    }
+    mysqli_free_result($res);
+}
 $username_err = $password_err = $confirm_password_err = '';
 
 if($_SERVER['REQUEST_METHOD'] == 'POST'){
@@ -52,14 +61,35 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
     } else {
         $role = 'user';
     }
+    $level_id = isset($_POST['level_id']) ? (int)$_POST['level_id'] : null;
     if(empty($username_err) && empty($password_err) && empty($confirm_password_err)){
-        $sql = 'INSERT INTO admin (username, password, role) VALUES (?, ?, ?)';
+        $sql = 'INSERT INTO admin (username, password, role, level_id) VALUES (?, ?, ?, ?)';
         if($stmt = mysqli_prepare($link, $sql)){
-            mysqli_stmt_bind_param($stmt, 'sss', $param_username, $param_password, $param_role);
+            mysqli_stmt_bind_param($stmt, 'sssi', $param_username, $param_password, $param_role, $param_level);
             $param_username = $username;
             $param_password = password_hash($password, PASSWORD_DEFAULT);
             $param_role = $role;
+            $param_level = $level_id;
             if(mysqli_stmt_execute($stmt)){
+                $newUserId = mysqli_insert_id($link);
+                if($level_id){
+                    $permStmt = mysqli_prepare($link, 'SELECT page, module, can_view, can_edit FROM user_level_permissions WHERE level_id=?');
+                    if($permStmt){
+                        mysqli_stmt_bind_param($permStmt, 'i', $level_id);
+                        if(mysqli_stmt_execute($permStmt)){
+                            mysqli_stmt_bind_result($permStmt, $p, $m, $v, $e);
+                            while(mysqli_stmt_fetch($permStmt)){
+                                $ins = mysqli_prepare($link, 'INSERT INTO permissions (user_id, page, module, can_view, can_edit) VALUES (?,?,?,?,?)');
+                                if($ins){
+                                    mysqli_stmt_bind_param($ins, 'issii', $newUserId, $p, $m, $v, $e);
+                                    mysqli_stmt_execute($ins);
+                                    mysqli_stmt_close($ins);
+                                }
+                            }
+                        }
+                        mysqli_stmt_close($permStmt);
+                    }
+                }
                 header('location: welcome.php');
                 exit;
             }
@@ -94,6 +124,15 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
             <option value="admin" <?php echo $role==='admin'?'selected':''; ?>>Admin</option>
             <option value="superadmin" <?php echo $role==='superadmin'?'selected':''; ?>>Super Admin</option>
             <?php endif; ?>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">User Level</label>
+        <select name="level_id" class="form-select">
+            <option value="">None</option>
+            <?php foreach($levels as $lvl): ?>
+            <option value="<?php echo $lvl['id']; ?>" <?php echo $level_id==$lvl['id']?'selected':''; ?>><?php echo htmlspecialchars($lvl['name']); ?></option>
+            <?php endforeach; ?>
         </select>
     </div>
     <input type="submit" class="btn btn-primary" value="Create">

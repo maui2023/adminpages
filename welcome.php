@@ -9,6 +9,7 @@ include 'header.php';
 <a href="register.php" class="btn btn-success me-2">Create User</a>
 <?php endif; ?>
 <?php if($_SESSION['role']==='superadmin' || $_SESSION['role']==='admin'): ?>
-<a href="dashboard.php" class="btn btn-primary">Manage Permissions</a>
+<a href="dashboard.php" class="btn btn-primary me-2">Manage Permissions</a>
+<a href="manage_levels.php" class="btn btn-secondary">Manage Levels</a>
 <?php endif; ?>
 <?php include 'footer.php'; ?>
