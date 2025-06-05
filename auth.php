@@ -11,14 +11,15 @@ function require_login(){
     }
 }
 
-function has_permission($page, $action = 'view'){
+// Check if the current user has permission for a module/function on a page
+function has_permission($page, $module, $action = 'view'){
     global $link;
     if($_SESSION['role'] === 'superadmin'){
         return true;
     }
-    $sql = "SELECT can_view, can_edit FROM permissions WHERE user_id=? AND page=?";
+    $sql = "SELECT can_view, can_edit FROM permissions WHERE user_id=? AND page=? AND module=?";
     if($stmt = mysqli_prepare($link, $sql)){
-        mysqli_stmt_bind_param($stmt, 'is', $_SESSION['id'], $page);
+        mysqli_stmt_bind_param($stmt, 'iss', $_SESSION['id'], $page, $module);
         if(mysqli_stmt_execute($stmt)){
             mysqli_stmt_bind_result($stmt, $view, $edit);
             if(mysqli_stmt_fetch($stmt)){
@@ -32,9 +33,10 @@ function has_permission($page, $action = 'view'){
     return false;
 }
 
-function require_permission($page, $action = 'view'){
+// Convenience wrapper that forces a permission check
+function require_permission($page, $module, $action = 'view'){
     require_login();
-    if(!has_permission($page, $action)){
+    if(!has_permission($page, $module, $action)){
         header('location: welcome.php');
         exit;
     }

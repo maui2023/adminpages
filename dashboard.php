@@ -7,32 +7,33 @@ if($_SESSION['role'] !== 'superadmin'){
 }
 
 $pages = ['page_a','page_b','page_c'];
+$modules = ['dashboard','application','letter'];
 
 // Handle form submission
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permissions'])){
-    foreach($_POST['permissions'] as $userId => $pagePerms){
+    foreach($_POST['permissions'] as $userId => $pagesData){
         foreach($pages as $page){
-            $level = isset($pagePerms[$page]) ? $pagePerms[$page] : 'none';
-            // Remove existing permission
-            $stmt = mysqli_prepare($link, 'DELETE FROM permissions WHERE user_id=? AND page=?');
-            if($stmt){
-                mysqli_stmt_bind_param($stmt, 'is', $userId, $page);
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
-            }
-            if($level !== 'none'){
-                $can_view = 1;
-                $can_edit = $level === 'edit' ? 1 : 0;
-                $stmt = mysqli_prepare($link, 'INSERT INTO permissions (user_id, page, can_view, can_edit) VALUES (?, ?, ?, ?)');
+            foreach($modules as $module){
+                $view = isset($pagesData[$page][$module]['view']) ? 1 : 0;
+                $edit = isset($pagesData[$page][$module]['edit']) ? 1 : 0;
+
+                $stmt = mysqli_prepare($link, 'DELETE FROM permissions WHERE user_id=? AND page=? AND module=?');
                 if($stmt){
-                    mysqli_stmt_bind_param($stmt, 'isii', $userId, $page, $can_view, $can_edit);
+                    mysqli_stmt_bind_param($stmt, 'iss', $userId, $page, $module);
                     mysqli_stmt_execute($stmt);
                     mysqli_stmt_close($stmt);
+                }
+                if($view || $edit){
+                    $stmt = mysqli_prepare($link, 'INSERT INTO permissions (user_id, page, module, can_view, can_edit) VALUES (?, ?, ?, ?, ?)');
+                    if($stmt){
+                        mysqli_stmt_bind_param($stmt, 'issii', $userId, $page, $module, $view, $edit);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_close($stmt);
+                    }
                 }
             }
         }
     }
-    // Redirect to avoid resubmission
     header('location: dashboard.php');
     exit;
 }
@@ -50,21 +51,21 @@ if($result){
 // Fetch permissions
 $permissions = [];
 foreach($users as $user){
-    $permissions[$user['id']] = array_fill_keys($pages, 'none');
-    $stmt = mysqli_prepare($link, 'SELECT page, can_view, can_edit FROM permissions WHERE user_id=?');
+    foreach($pages as $p){
+        foreach($modules as $m){
+            $permissions[$user['id']][$p][$m] = ['view'=>0,'edit'=>0];
+        }
+    }
+    $stmt = mysqli_prepare($link, 'SELECT page, module, can_view, can_edit FROM permissions WHERE user_id=?');
     if($stmt){
         mysqli_stmt_bind_param($stmt, 'i', $user['id']);
         if(mysqli_stmt_execute($stmt)){
-            mysqli_stmt_bind_result($stmt, $page, $can_view, $can_edit);
+            mysqli_stmt_bind_result($stmt, $page, $module, $can_view, $can_edit);
             while(mysqli_stmt_fetch($stmt)){
-                if($can_edit){
-                    $level = 'edit';
-                } elseif($can_view){
-                    $level = 'view';
-                } else {
-                    $level = 'none';
-                }
-                $permissions[$user['id']][$page] = $level;
+                $permissions[$user['id']][$page][$module] = [
+                    'view'=>(int)$can_view,
+                    'edit'=>(int)$can_edit
+                ];
             }
         }
         mysqli_stmt_close($stmt);
@@ -88,13 +89,18 @@ include 'header.php';
 <?php foreach($users as $u): ?>
     <tr>
       <td><?php echo htmlspecialchars($u['username']); ?></td>
-<?php foreach($pages as $p): $val = $permissions[$u['id']][$p]; ?>
+<?php foreach($pages as $p): ?>
       <td>
-        <select name="permissions[<?php echo $u['id']; ?>][<?php echo $p; ?>]" class="form-select">
-          <option value="none" <?php echo $val==='none'?'selected':''; ?>>None</option>
-          <option value="view" <?php echo $val==='view'?'selected':''; ?>>View</option>
-          <option value="edit" <?php echo $val==='edit'?'selected':''; ?>>Edit</option>
-        </select>
+<?php foreach($modules as $m): $perm = $permissions[$u['id']][$p][$m]; ?>
+        <div class="form-check">
+          <label class="form-check-label me-2">
+            <input type="checkbox" class="form-check-input" name="permissions[<?php echo $u['id']; ?>][<?php echo $p; ?>][<?php echo $m; ?>][view]" <?php echo $perm['view']?'checked':''; ?>><?php echo htmlspecialchars($m); ?> V
+          </label>
+          <label class="form-check-label">
+            <input type="checkbox" class="form-check-input" name="permissions[<?php echo $u['id']; ?>][<?php echo $p; ?>][<?php echo $m; ?>][edit]" <?php echo $perm['edit']?'checked':''; ?>>E
+          </label>
+        </div>
+<?php endforeach; ?>
       </td>
 <?php endforeach; ?>
     </tr>
