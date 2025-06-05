@@ -21,14 +21,29 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         $password = trim($_POST["password"]);
     }
     if(empty($username_err) && empty($password_err)) {
-        $sql = "SELECT id, username, password, role, level_id FROM admin WHERE username=?";
+        $hasLevel = false;
+        $res = mysqli_query($link, "SHOW COLUMNS FROM admin LIKE 'level_id'");
+        if($res && mysqli_num_rows($res) === 1){
+            $hasLevel = true;
+        }
+        if($res){
+            mysqli_free_result($res);
+        }
+        $sql = $hasLevel ?
+            "SELECT id, username, password, role, level_id FROM admin WHERE username=?" :
+            "SELECT id, username, password, role FROM admin WHERE username=?";
         if($stmt = mysqli_prepare($link, $sql)) {
             mysqli_stmt_bind_param($stmt, "s", $param_username);
             $param_username = $username;
             if(mysqli_stmt_execute($stmt)) {
                 mysqli_stmt_store_result($stmt);
                 if(mysqli_stmt_num_rows($stmt) == 1) {
-                    mysqli_stmt_bind_result($stmt, $id, $username, $hashed_password, $role, $level_id);
+                    if($hasLevel){
+                        mysqli_stmt_bind_result($stmt, $id, $username, $hashed_password, $role, $level_id);
+                    }else{
+                        mysqli_stmt_bind_result($stmt, $id, $username, $hashed_password, $role);
+                        $level_id = null;
+                    }
                     if(mysqli_stmt_fetch($stmt)) {
                         if(password_verify($password, $hashed_password)) {
                             session_start();
